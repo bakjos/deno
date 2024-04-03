@@ -77,10 +77,10 @@ pub fn preferred(
 ///
 /// Compatible with `http` crate for version 0.2.x.
 pub fn encodings_iter_http_02(
-  headers: &http_v02::HeaderMap,
+  headers: &http::HeaderMap,
 ) -> impl Iterator<Item = Result<(Option<Encoding>, f32), EncodingError>> + '_ {
   let iter = headers
-    .get_all(http_v02::header::ACCEPT_ENCODING)
+    .get_all(http::header::ACCEPT_ENCODING)
     .iter()
     .map(|hval| hval.to_str().map_err(|_| EncodingError::InvalidEncoding));
   encodings_iter_inner(iter)
@@ -125,9 +125,9 @@ fn encodings_iter_inner<'s>(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use http_v02::header::ACCEPT_ENCODING;
-  use http_v02::HeaderMap;
-  use http_v02::HeaderValue;
+  use http::header::ACCEPT_ENCODING;
+  use http::HeaderMap;
+  use http::HeaderValue;
 
   fn encodings(
     headers: &HeaderMap,

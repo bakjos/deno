@@ -66,6 +66,7 @@ use std::mem::take;
 use std::pin::pin;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
@@ -220,11 +221,21 @@ impl HttpConnResource {
       let request = request_rx.await.ok()?;
 
       let accept_encoding = {
-        let encodings =
-          fly_accept_encoding::encodings_iter_http_02(request.headers())
-            .filter(|r| {
-              matches!(r, Ok((Some(Encoding::Brotli | Encoding::Gzip), _)))
-            });
+        let headers = request.headers().iter().fold(
+          hyper::HeaderMap::with_capacity(request.headers().len()),
+          |mut header, it| {
+            header.insert(
+              hyper::header::HeaderName::from_str(it.0.as_str()).unwrap(),
+              hyper::header::HeaderValue::from_bytes(it.1.as_bytes()).unwrap(),
+            );
+            header
+          },
+        );
+
+        let encodings = fly_accept_encoding::encodings_iter_http_02(&headers)
+          .filter(|r| {
+            matches!(r, Ok((Some(Encoding::Brotli | Encoding::Gzip), _)))
+          });
 
         fly_accept_encoding::preferred(encodings)
           .ok()
