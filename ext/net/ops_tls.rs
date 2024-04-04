@@ -26,10 +26,10 @@ use deno_core::ResourceId;
 use deno_tls::create_client_config;
 use deno_tls::load_certs;
 use deno_tls::load_private_keys;
-use deno_tls::rustls::Certificate;
-use deno_tls::rustls::PrivateKey;
+use deno_tls::rustls::pki_types::CertificateDer;
+use deno_tls::rustls::pki_types::PrivateKeyDer;
+use deno_tls::rustls::pki_types::ServerName;
 use deno_tls::rustls::ServerConfig;
-use deno_tls::rustls::ServerName;
 use deno_tls::SocketUse;
 use io::Read;
 use rustls_tokio_stream::TlsStreamRead;
@@ -169,7 +169,7 @@ where
   NP: NetPermissions + 'static,
 {
   let rid = args.rid;
-  let hostname = match &*args.hostname {
+  let hostname = match args.hostname.as_str() {
     "" => "localhost",
     n => n,
   };
@@ -186,8 +186,8 @@ where
     .map(|s| s.into_bytes())
     .collect::<Vec<_>>();
 
-  let hostname_dns =
-    ServerName::try_from(hostname).map_err(|_| invalid_hostname(hostname))?;
+  let hostname_dns = ServerName::try_from(hostname.to_string())
+    .map_err(|_| invalid_hostname(hostname))?;
 
   let unsafely_ignore_certificate_errors = state
     .borrow()
@@ -287,7 +287,7 @@ where
     .borrow()
     .borrow::<DefaultTlsOptions>()
     .root_cert_store()?;
-  let hostname_dns = ServerName::try_from(&*addr.hostname)
+  let hostname_dns = ServerName::try_from(addr.hostname.clone())
     .map_err(|_| invalid_hostname(&addr.hostname))?;
   let connect_addr = resolve_addr(&addr.hostname, addr.port)
     .await?
@@ -341,7 +341,9 @@ where
   Ok((rid, IpAddr::from(local_addr), IpAddr::from(remote_addr)))
 }
 
-fn load_certs_from_file(path: &str) -> Result<Vec<Certificate>, AnyError> {
+fn load_certs_from_file(
+  path: &str,
+) -> Result<Vec<CertificateDer<'static>>, AnyError> {
   let cert_file = File::open(path)?;
   let reader = &mut BufReader::new(cert_file);
   load_certs(reader)
@@ -349,7 +351,7 @@ fn load_certs_from_file(path: &str) -> Result<Vec<Certificate>, AnyError> {
 
 fn load_private_keys_from_file(
   path: &str,
-) -> Result<Vec<PrivateKey>, AnyError> {
+) -> Result<Vec<PrivateKeyDer<'static>>, AnyError> {
   let key_bytes = std::fs::read(path)?;
   load_private_keys(&key_bytes)
 }
@@ -436,7 +438,6 @@ where
   };
 
   let mut tls_config = ServerConfig::builder()
-    .with_safe_defaults()
     .with_no_client_auth()
     .with_single_cert(cert_chain, key_der)
     .map_err(|e| {
