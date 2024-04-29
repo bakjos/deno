@@ -1695,6 +1695,7 @@ class SubtleCrypto {
    * @returns {Promise<any>}
    */
   async generateKey(algorithm, extractable, keyUsages) {
+    console.log('Generating key', algorithm, extractable, keyUsages);
     webidl.assertBranded(this, SubtleCryptoPrototype);
     const prefix = "Failed to execute 'generateKey' on 'SubtleCrypto'";
     webidl.requiredArguments(arguments.length, 3, prefix);
@@ -1717,6 +1718,9 @@ class SubtleCrypto {
     const usages = keyUsages;
 
     const normalizedAlgorithm = normalizeAlgorithm(algorithm, "generateKey");
+
+    console.log('calling generateKey', normalizedAlgorithm, extractable, keyUsages);
+
     const result = await generateKey(
       normalizedAlgorithm,
       extractable,
@@ -1747,6 +1751,8 @@ const SubtleCryptoPrototype = SubtleCrypto.prototype;
 
 async function generateKey(normalizedAlgorithm, extractable, usages) {
   const algorithmName = normalizedAlgorithm.name;
+
+  console.log('Using algorithm', algorithmName);
 
   switch (algorithmName) {
     case "RSASSA-PKCS1-v1_5":
@@ -2127,12 +2133,15 @@ async function generateKey(normalizedAlgorithm, extractable, usages) {
         throw new DOMException("Invalid length", "OperationError");
       }
 
+      console.log('Calling op_crypto_generate_key', normalizedAlgorithm.hash.name, length);
+
       // 3-4.
       const keyData = await op_crypto_generate_key({
         algorithm: "HMAC",
         hash: normalizedAlgorithm.hash.name,
         length,
       });
+      console.log('KeyData received', keyData);
       const handle = {};
       WeakMapPrototypeSet(KEY_STORE, handle, {
         type: "secret",
@@ -2147,6 +2156,9 @@ async function generateKey(normalizedAlgorithm, extractable, usages) {
         },
         length: TypedArrayPrototypeGetByteLength(keyData) * 8,
       };
+
+
+      console.log('constructKey', algorithm);
 
       // 5, 11-13.
       const key = constructKey(
