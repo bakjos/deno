@@ -123,6 +123,7 @@ fn generate_key_hmac(
   hash: ShaHash,
   length: Option<usize>,
 ) -> Result<Vec<u8>, AnyError> {
+  println!("generate_key hmac");
   let hash = match hash {
     ShaHash::Sha1 => &ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
     ShaHash::Sha256 => &ring::hmac::HMAC_SHA256,
@@ -145,11 +146,19 @@ fn generate_key_hmac(
     hash.digest_algorithm().block_len()
   };
 
+
+  println!("Creating system random rng");
   let rng = ring::rand::SystemRandom::new();
   let mut key = vec![0u8; length];
+
+  println!("Generating random key with length {}", length);
+
   rng
     .fill(&mut key)
     .map_err(|_| operation_error("Failed to generate key"))?;
+
+
+    println!("Generation completed {}", length);
 
   Ok(key)
 }
