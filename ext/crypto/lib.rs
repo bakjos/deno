@@ -611,6 +611,7 @@ fn read_rsa_public_key(key_data: KeyData) -> Result<RsaPublicKey, AnyError> {
 #[op2]
 #[string]
 pub fn op_crypto_random_uuid(state: &mut OpState) -> Result<String, AnyError> {
+  tracing::info!("op_crypto_random_uuid");
   let maybe_seeded_rng = state.try_borrow_mut::<StdRng>();
   let uuid = if let Some(seeded_rng) = maybe_seeded_rng {
     let mut bytes = [0u8; 16];
