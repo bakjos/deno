@@ -48,6 +48,9 @@ pub async fn op_crypto_generate_key(
   #[serde] opts: GenerateKeyOptions,
 ) -> Result<ToJsBuffer, AnyError> {
   tracing::error!("op_crypto_generate_key");
+
+  tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
   let fun = || match opts {
     GenerateKeyOptions::Rsa {
       modulus_length,
