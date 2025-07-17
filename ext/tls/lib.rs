@@ -198,7 +198,6 @@ impl ServerCertVerifier for NoServerNameVerification {
         if matches!(
           cert_error,
           rustls::CertificateError::NotValidForName
-            | rustls::CertificateError::NotValidForNameContext { .. }
         ) {
           Ok(ServerCertVerified::assertion())
         } else {
