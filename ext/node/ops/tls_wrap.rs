@@ -805,7 +805,7 @@ fn rustls_error_to_node_error(e: &rustls::Error) -> (String, String) {
   use rustls::Error as E;
   match e {
     E::InvalidCertificate(cert_err) => {
-      let reason = format!("{cert_err}");
+      let reason = format!("{cert_err:?}");
       // Map common rustls certificate errors to OpenSSL error codes
       let code = if reason.contains("UnknownIssuer") {
         "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
@@ -2705,7 +2705,7 @@ fn cert_error_to_node_code(err: &rustls::CertificateError) -> &'static str {
     CE::NotValidYet => "CERT_NOT_YET_VALID",
     CE::Expired => "CERT_HAS_EXPIRED",
     CE::Revoked => "CERT_REVOKED",
-    CE::NotValidForName | CE::NotValidForNameContext { .. } => {
+    CE::NotValidForName => {
       "ERR_TLS_CERT_ALTNAME_INVALID"
     }
     CE::InvalidPurpose => "INVALID_PURPOSE",
@@ -2743,11 +2743,7 @@ impl rustls::client::danger::ServerCertVerifier for NodeServerCertVerifier {
       Ok(v) => Ok(v),
       Err(rustls::Error::InvalidCertificate(ref cert_error)) => {
         // Server-name checks are handled by JS (checkServerIdentity).
-        if matches!(
-          cert_error,
-          rustls::CertificateError::NotValidForName
-            | rustls::CertificateError::NotValidForNameContext { .. }
-        ) {
+        if matches!(cert_error, rustls::CertificateError::NotValidForName) {
           return Ok(rustls::client::danger::ServerCertVerified::assertion());
         }
         // CaUsedAsEndEntity is a rustls/webpki-specific check that
