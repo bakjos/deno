@@ -14,8 +14,9 @@ pub mod import_map;
 #[cfg(feature = "deno_json")]
 mod util;
 #[cfg(feature = "workspace")]
-pub mod workspace;
-
+pub mod workspace_inner;
+#[cfg(feature = "workspace")]
+pub mod workspace { pub use crate::workspace_inner::*; }
 #[cfg(feature = "deno_json")]
 pub use deno_path_util::UrlToFilePathError;
 #[cfg(feature = "deno_json")]
