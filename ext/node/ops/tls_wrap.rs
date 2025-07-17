@@ -816,7 +816,7 @@ fn rustls_error_to_node_error(
   use rustls::Error as E;
   match e {
     E::InvalidCertificate(cert_err) => {
-      let reason = format!("{cert_err}");
+      let reason = format!("{cert_err:?}");
       // Map common rustls certificate errors to OpenSSL error codes
       let code = if reason.contains("UnknownIssuer") {
         "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
@@ -2957,7 +2957,7 @@ fn cert_error_to_node_code(err: &rustls::CertificateError) -> &'static str {
     CE::NotValidYet => "CERT_NOT_YET_VALID",
     CE::Expired => "CERT_HAS_EXPIRED",
     CE::Revoked => "CERT_REVOKED",
-    CE::NotValidForName | CE::NotValidForNameContext { .. } => {
+    CE::NotValidForName => {
       "ERR_TLS_CERT_ALTNAME_INVALID"
     }
     CE::InvalidPurpose => "INVALID_PURPOSE",
@@ -2995,11 +2995,7 @@ impl rustls::client::danger::ServerCertVerifier for NodeServerCertVerifier {
       Ok(v) => Ok(v),
       Err(rustls::Error::InvalidCertificate(ref cert_error)) => {
         // Server-name checks are handled by JS (checkServerIdentity).
-        if matches!(
-          cert_error,
-          rustls::CertificateError::NotValidForName
-            | rustls::CertificateError::NotValidForNameContext { .. }
-        ) {
+        if matches!(cert_error, rustls::CertificateError::NotValidForName) {
           return Ok(rustls::client::danger::ServerCertVerified::assertion());
         }
         // OpenSSL accepts X.509v1 certificates; webpki rejects them with
@@ -3404,6 +3400,27 @@ impl rustls::server::danger::ClientCertVerifier for NodeClientCertVerifier {
   }
 }
 
+/// Resolver that always returns the same [`rustls::sign::CertifiedKey`].
+///
+/// Rustls 0.23.35+ provides [`rustls::sign::SingleCertAndKey`] for this; older
+/// versions (e.g. 0.23.22) do not, so we keep an equivalent type here.
+struct NodeFixedServerCert(Arc<rustls::sign::CertifiedKey>);
+
+impl std::fmt::Debug for NodeFixedServerCert {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("NodeFixedServerCert").finish_non_exhaustive()
+  }
+}
+
+impl rustls::server::ResolvesServerCert for NodeFixedServerCert {
+  fn resolve(
+    &self,
+    _client_hello: rustls::server::ClientHello<'_>,
+  ) -> Option<Arc<rustls::sign::CertifiedKey>> {
+    Some(self.0.clone())
+  }
+}
+
 /// Build a rustls ServerConfig from a SecureContext JS object.
 /// Returns (config, verify_error_store) where the store is shared with
 /// `NodeClientCertVerifier` so the server-side JS can read client cert errors.
@@ -3547,7 +3564,7 @@ fn build_server_config(
       return None;
     }
   }
-  let resolver = rustls::sign::SingleCertAndKey::from(certified_key);
+  let resolver = NodeFixedServerCert(Arc::new(certified_key));
   Some((
     builder.with_cert_resolver(Arc::new(resolver)),
     client_cert_verify_error,
