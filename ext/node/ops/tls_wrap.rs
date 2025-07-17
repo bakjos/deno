@@ -3536,7 +3536,7 @@ fn cert_error_to_node_code(err: &rustls::CertificateError) -> &'static str {
     CE::NotValidYet => "CERT_NOT_YET_VALID",
     CE::Expired => "CERT_HAS_EXPIRED",
     CE::Revoked => "CERT_REVOKED",
-    CE::NotValidForName | CE::NotValidForNameContext { .. } => {
+    CE::NotValidForName => {
       "ERR_TLS_CERT_ALTNAME_INVALID"
     }
     CE::InvalidPurpose => "INVALID_PURPOSE",
@@ -3616,11 +3616,7 @@ impl rustls::client::danger::ServerCertVerifier for NodeServerCertVerifier {
         // so that custom checkServerIdentity callbacks see a successful
         // handshake. The JS layer still runs that check and destroys the
         // connection if it fails.
-        if matches!(
-          cert_error,
-          rustls::CertificateError::NotValidForName
-            | rustls::CertificateError::NotValidForNameContext { .. }
-        ) {
+        if matches!(cert_error, rustls::CertificateError::NotValidForName) {
           return Ok(rustls::client::danger::ServerCertVerified::assertion());
         }
         // OpenSSL accepts X.509v1 certificates; webpki rejects them with
@@ -4493,7 +4489,7 @@ fn build_server_config(
       return None;
     }
   }
-  let resolver = rustls::sign::SingleCertAndKey::from(certified_key);
+  let resolver = StaticServerCertResolver(Arc::new(certified_key));
   let mut server_config = builder.with_cert_resolver(Arc::new(resolver));
   // Enable session ticket issuance (RFC 5077) so TLS 1.2 / 1.3 clients can
   // resume sessions.  Without this, rustls installs `NeverProducesTickets`
@@ -4549,6 +4545,19 @@ impl rustls::client::ResolvesClientCert for StaticClientCertResolver {
 
   fn has_certs(&self) -> bool {
     true
+  }
+}
+
+/// `ResolvesServerCert` impl that always returns the same `CertifiedKey`.
+#[derive(Debug)]
+struct StaticServerCertResolver(Arc<rustls::sign::CertifiedKey>);
+
+impl rustls::server::ResolvesServerCert for StaticServerCertResolver {
+  fn resolve(
+    &self,
+    _client_hello: rustls::server::ClientHello<'_>,
+  ) -> Option<Arc<rustls::sign::CertifiedKey>> {
+    Some(self.0.clone())
   }
 }
 
